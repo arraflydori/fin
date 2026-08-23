@@ -45,6 +45,7 @@ fun TrxPage(
     onUp: () -> Unit,
     onSaveSuccess: () -> Unit,
     onDeleteSuccess: (Trx) -> Unit,
+    onCopySuccess: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycleIfAvailable()
@@ -79,11 +80,8 @@ fun TrxPage(
 
     uiState.copyStatus.let { status ->
         LaunchedEffect(status) {
-            when (status) {
-                is Success -> showToast(
-                    "Transaction copied",
-                    duration = ToastDuration.Long,
-                )
+            when (val status = status) {
+                is Success -> onCopySuccess(status.data)
                 is Failure -> showToast(
                     status.error.toString(),
                     duration = ToastDuration.Long

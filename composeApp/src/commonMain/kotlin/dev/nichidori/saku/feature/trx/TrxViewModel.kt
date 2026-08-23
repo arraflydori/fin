@@ -48,7 +48,7 @@ data class TrxUiState(
     val canDelete: Boolean = false,
     val saveStatus: Status<Unit, Exception> = Initial,
     val deleteStatus: Status<Trx, Exception> = Initial,
-    val copyStatus: Status<Unit, Exception> = Initial,
+    val copyStatus: Status<String, Exception> = Initial,
 ) {
     val categoriesByParent = when (type) {
         TrxType.Income -> incomesByParent
@@ -369,9 +369,9 @@ class TrxViewModel(
                 if (trx is Trx.Adjustment || (trx as? Trx.Expense)?.installment != null) {
                     throw UnsupportedOperationException("Transaction cannot be copied")
                 }
-                trxRepository.addTrx(
+                val newId = trxRepository.addTrx(
                     type = trx.type,
-                    transactionAt = trx.transactionAt,
+                    transactionAt = Clock.System.now(),
                     amount = trx.amount,
                     description = trx.description,
                     sourceAccount = trx.sourceAccount,
@@ -379,7 +379,7 @@ class TrxViewModel(
                     category = trx.category,
                 )
                 _uiState.update {
-                    it.copy(copyStatus = Success(Unit))
+                    it.copy(copyStatus = Success(newId))
                 }
             } catch (e: Exception) {
                 this@TrxViewModel.log(e)

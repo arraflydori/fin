@@ -185,6 +185,20 @@ fun App(
         }
     }
 
+    LaunchedEffect(appUiState.copiedTrxId) {
+        appUiState.copiedTrxId?.let { copiedTrxId ->
+            val result = snackbarHostState.showSnackbar(
+                message = "Transaction copied",
+                actionLabel = "View",
+                duration = SnackbarDuration.Short
+            )
+            if (result == SnackbarResult.ActionPerformed) {
+                rootNavController.navigate(Route.Trx(id = copiedTrxId))
+            }
+            appViewModel.clearCopiedTrx()
+        }
+    }
+
     val darkTheme = appUiState.darkTheme ?: return
 
     MyThemeSwitcher(
@@ -322,6 +336,10 @@ fun App(
                                 if ((deletedTrx as? Trx.Expense)?.installment !is InstallmentInfo.Charge) {
                                     appViewModel.onTrxDeleted(deletedTrx)
                                 }
+                                rootNavController.popBackStack()
+                            },
+                            onCopySuccess = { copiedTrxId ->
+                                appViewModel.onTrxCopied(copiedTrxId)
                                 rootNavController.popBackStack()
                             },
                         )
