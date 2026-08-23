@@ -21,10 +21,7 @@ import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import com.composables.icons.lucide.Lucide
-import com.composables.icons.lucide.Plus
-import com.composables.icons.lucide.Trash
-import com.composables.icons.lucide.X
+import com.composables.icons.lucide.*
 import dev.nichidori.saku.core.composable.*
 import dev.nichidori.saku.core.model.Status.Failure
 import dev.nichidori.saku.core.model.Status.Success
@@ -33,11 +30,7 @@ import dev.nichidori.saku.core.platform.showToast
 import dev.nichidori.saku.core.util.collectAsStateWithLifecycleIfAvailable
 import dev.nichidori.saku.core.util.format
 import dev.nichidori.saku.core.util.toRupiah
-import dev.nichidori.saku.domain.model.Category
-import dev.nichidori.saku.domain.model.InstallmentInfo
-import dev.nichidori.saku.domain.model.TrxAccount
-import dev.nichidori.saku.domain.model.Trx
-import dev.nichidori.saku.domain.model.TrxType
+import dev.nichidori.saku.domain.model.*
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.format.MonthNames
@@ -84,6 +77,23 @@ fun TrxPage(
         }
     }
 
+    uiState.copyStatus.let { status ->
+        LaunchedEffect(status) {
+            when (status) {
+                is Success -> showToast(
+                    "Transaction copied",
+                    duration = ToastDuration.Long,
+                )
+                is Failure -> showToast(
+                    status.error.toString(),
+                    duration = ToastDuration.Long
+                )
+
+                else -> {}
+            }
+        }
+    }
+
     if (!uiState.isLoading) {
         TrxPageContent(
             uiState = uiState,
@@ -104,6 +114,7 @@ fun TrxPage(
             onMonthsChange = viewModel::onMonthsChange,
             onMonthlyRateChange = viewModel::onMonthlyRateChange,
             onSaveClick = viewModel::saveTrx,
+            onCopyClick = viewModel::copyTrx,
             onDeleteClick = viewModel::deleteTrx,
             modifier = modifier
         )
@@ -130,6 +141,7 @@ fun TrxPageContent(
     onMonthsChange: ((String) -> String) -> Unit,
     onMonthlyRateChange: ((String) -> String) -> Unit,
     onSaveClick: () -> Unit,
+    onCopyClick: () -> Unit,
     onDeleteClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -157,6 +169,19 @@ fun TrxPageContent(
                 title = "Transaction",
                 onUp = onUp,
                 action = {
+                    if (uiState.canCopy) {
+                        MyIconButton(
+                            content = {
+                                Icon(
+                                    imageVector = Lucide.Copy,
+                                    contentDescription = "Copy transaction",
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            },
+                            onClick = onCopyClick,
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                    }
                     if (uiState.canDelete) {
                         MyIconButton(
                             content = {

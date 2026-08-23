@@ -44,9 +44,11 @@ data class TrxUiState(
     val accountOptions: List<TrxAccount> = listOf(),
     val incomesByParent: Map<Category, List<Category>> = emptyMap(),
     val expensesByParent: Map<Category, List<Category>> = emptyMap(),
+    val canCopy: Boolean = false,
     val canDelete: Boolean = false,
     val saveStatus: Status<Unit, Exception> = Initial,
     val deleteStatus: Status<Trx, Exception> = Initial,
+    val copyStatus: Status<Unit, Exception> = Initial,
 ) {
     val categoriesByParent = when (type) {
         TrxType.Income -> incomesByParent
@@ -125,6 +127,8 @@ class TrxViewModel(
                         installment = installment,
                         months = plan?.months ?: it.months,
                         monthlyRatePercent = plan?.let { plan -> formatRate(plan.monthlyRatePercent) } ?: it.monthlyRatePercent,
+                        canCopy = this != null && this !is Trx.Adjustment
+                                && (this as? Trx.Expense)?.installment == null,
                         canDelete = this != null && (this as? Trx.Expense)?.installment !is InstallmentInfo.Installment
                     )
                 }
@@ -349,6 +353,38 @@ class TrxViewModel(
                 this@TrxViewModel.log(e)
                 _uiState.update {
                     it.copy(deleteStatus = Failure(e))
+                }
+            }
+        }
+    }
+
+    fun copyTrx() {
+        viewModelScope.launch {
+            try {
+                _uiState.update {
+                    it.copy(copyStatus = Loading)
+                }
+                val trxId = id ?: throw Exception("Trx id is null")
+                val trx = trxRepository.getTrxById(trxId) ?: throw Exception("Trx not found")
+                if (trx is Trx.Adjustment || (trx as? Trx.Expense)?.installment != null) {
+                    throw UnsupportedOperationException("Transaction cannot be copied")
+                }
+                trxRepository.addTrx(
+                    type = trx.type,
+                    transactionAt = trx.transactionAt,
+                    amount = trx.amount,
+                    description = trx.description,
+                    sourceAccount = trx.sourceAccount,
+                    targetAccount = (trx as? Trx.Transfer)?.targetAccount,
+                    category = trx.category,
+                )
+                _uiState.update {
+                    it.copy(copyStatus = Success(Unit))
+                }
+            } catch (e: Exception) {
+                this@TrxViewModel.log(e)
+                _uiState.update {
+                    it.copy(copyStatus = Failure(e))
                 }
             }
         }
