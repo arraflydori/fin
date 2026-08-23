@@ -11,6 +11,7 @@ import dev.nichidori.saku.core.util.log
 import dev.nichidori.saku.domain.model.*
 import dev.nichidori.saku.domain.repo.AccountRepository
 import dev.nichidori.saku.domain.repo.CategoryRepository
+import dev.nichidori.saku.domain.repo.InstallmentRepository
 import dev.nichidori.saku.domain.repo.TrxRepository
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.*
@@ -19,6 +20,7 @@ import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.YearMonth
 import kotlinx.datetime.toLocalDateTime
+import kotlin.time.Clock
 import kotlin.time.Duration.Companion.milliseconds
 
 data class DailyTrxRecord(
@@ -71,6 +73,7 @@ class TrxListViewModel(
     private val accountRepository: AccountRepository,
     private val categoryRepository: CategoryRepository,
     private val trxRepository: TrxRepository,
+    private val installmentRepository: InstallmentRepository,
 ) : ViewModel() {
     init {
         loadAccounts()
@@ -191,6 +194,45 @@ class TrxListViewModel(
             }
 
             newState.copy(stateByMonth = stateByMonth)
+        }
+    }
+
+    fun copyTrx(id: String) {
+        viewModelScope.launch {
+            try {
+                val trx = trxRepository.getTrxById(id) ?: throw Exception("Trx not found")
+                if (trx is Trx.Adjustment || (trx as? Trx.Expense)?.installment != null) {
+                    throw UnsupportedOperationException("Transaction cannot be copied")
+                }
+                val newId = trxRepository.addTrx(
+                    type = trx.type,
+                    transactionAt = Clock.System.now(),
+                    amount = trx.amount,
+                    description = trx.description,
+                    sourceAccount = trx.sourceAccount,
+                    targetAccount = (trx as? Trx.Transfer)?.targetAccount,
+                    category = trx.category,
+                )
+                appEventBus.emit(AppEvent.TrxChanged.Copied(newId))
+            } catch (e: Exception) {
+                this@TrxListViewModel.log(e)
+            }
+        }
+    }
+
+    fun deleteTrx(id: String) {
+        viewModelScope.launch {
+            try {
+                val trx = trxRepository.getTrxById(id) ?: throw Exception("Trx not found")
+                val charge = (trx as? Trx.Expense)?.installment
+                if (charge is InstallmentInfo.Charge) {
+                    installmentRepository.deleteInstallment(charge.installmentId)
+                } else {
+                    trxRepository.deleteTrx(id)
+                }
+            } catch (e: Exception) {
+                this@TrxListViewModel.log(e)
+            }
         }
     }
 

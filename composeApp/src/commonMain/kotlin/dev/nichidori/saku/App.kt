@@ -264,6 +264,7 @@ fun App(
                                 categoryRepository = categoryRepository,
                                 trxRepository = trxRepository,
                                 budgetRepository = budgetRepository,
+                                installmentRepository = installmentRepository,
                                 appEventBus = appEventBus,
                                 snackbarHostState = snackbarHostState,
                                 onMenuClick = { showMenu = !showMenu },
@@ -420,6 +421,7 @@ fun MainContainer(
     categoryRepository: CategoryRepository,
     trxRepository: TrxRepository,
     budgetRepository: BudgetRepository,
+    installmentRepository: InstallmentRepository,
     appEventBus: AppEventBus,
     snackbarHostState: SnackbarHostState,
     onMenuClick: () -> Unit,
@@ -519,7 +521,13 @@ fun MainContainer(
             }
             composable<Route.TrxList> {
                 val viewModel = viewModel {
-                    TrxListViewModel(appEventBus, accountRepository, categoryRepository, trxRepository)
+                    TrxListViewModel(
+                        appEventBus,
+                        accountRepository,
+                        categoryRepository,
+                        trxRepository,
+                        installmentRepository
+                    )
                 }
 
                 TrxListPage(

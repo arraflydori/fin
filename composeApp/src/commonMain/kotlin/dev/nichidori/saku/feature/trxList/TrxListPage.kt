@@ -1,7 +1,6 @@
 package dev.nichidori.saku.feature.trxList
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
@@ -9,16 +8,15 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.ZeroCornerSize
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
@@ -60,6 +58,8 @@ fun TrxListPage(
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
     var showFilterOption by remember { mutableStateOf(false) }
+    var selectedTrx by remember { mutableStateOf<Trx?>(null) }
+    val actionSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
     val earliestMonth = YearMonth(2025, 1)
     val currentMonth = Clock.System.now().toYearMonth()
@@ -280,6 +280,82 @@ fun TrxListPage(
         }
     }
 
+    selectedTrx?.let { trx ->
+        val canCopy = (trx as? Trx.Expense)?.installment == null && trx !is Trx.Adjustment
+        val canDelete = (trx as? Trx.Expense)?.installment !is InstallmentInfo.Installment
+
+        ModalBottomSheet(
+            onDismissRequest = { selectedTrx = null },
+            sheetState = actionSheetState,
+            shape = MyDefaultShape.copy(bottomStart = ZeroCornerSize, bottomEnd = ZeroCornerSize),
+            containerColor = MaterialTheme.colorScheme.surface,
+        ) {
+            Column(
+                modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp)
+            ) {
+                Text(
+                    text = if (trx.description.isBlank()) {
+                        trx.category?.name.orEmpty()
+                    } else {
+                        trx.description
+                    },
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        (if (trx is Trx.Adjustment && trx.sourceAccount is TrxAccount.Credit) -trx.amount else trx.amount).toRupiah(),
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = when {
+                            (trx as? Trx.Expense)?.installment is InstallmentInfo.Charge
+                                -> MaterialTheme.colorScheme.onSurfaceVariant
+
+                            trx is Trx.Income -> MaterialTheme.colorScheme.primary
+                            trx is Trx.Expense -> MaterialTheme.colorScheme.error
+                            else -> MaterialTheme.colorScheme.onSurfaceVariant
+                        },
+                    )
+                    Spacer(modifier = Modifier.weight(1f))
+                    Text(
+                        trx.transactionAt.format(LocalDateTime.Format {
+                            day()
+                            chars(" ")
+                            monthName(MonthNames.ENGLISH_ABBREVIATED)
+                            chars(" ")
+                            hour()
+                            chars(":")
+                            minute()
+                        }),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    TrxActionItem(icon = Lucide.Pencil, label = "Edit") {
+                        selectedTrx = null
+                        onTrxClick(trx.id)
+                    }
+                    if (canCopy) {
+                        TrxActionItem(icon = Lucide.Copy, label = "Copy") {
+                            selectedTrx = null
+                            viewModel.copyTrx(trx.id)
+                        }
+                    }
+                    if (canDelete) {
+                        TrxActionItem(icon = Lucide.Trash2, label = "Delete") {
+                            selectedTrx = null
+                            viewModel.deleteTrx(trx.id)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     Scaffold(
         modifier = modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
@@ -362,6 +438,7 @@ fun TrxListPage(
                 TrxListContent(
                     uiState = uiState.stateByMonth[pageMonth] ?: TrxListUiState.MonthlyState(),
                     onTrxClick = onTrxClick,
+                    onTrxLongClick = { selectedTrx = it },
                 )
             }
         }
@@ -374,6 +451,7 @@ fun TrxListContent(
     onTrxClick: (String) -> Unit,
     modifier: Modifier = Modifier,
     emptyMessage: String = "No transactions yet",
+    onTrxLongClick: (Trx) -> Unit = {},
 ) {
     if (uiState.trxRecordsByDate.isEmpty() && uiState.loadStatus.isCompleted) {
         MyNoData(
@@ -440,6 +518,7 @@ fun TrxListContent(
                     TrxCard(
                         trx = trx,
                         onClick = onTrxClick,
+                        onLongPress = { onTrxLongClick(trx) },
                         modifier = Modifier.animateItem(),
                     )
                 }
@@ -448,12 +527,21 @@ fun TrxListContent(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun TrxCard(trx: Trx, onClick: (String) -> Unit, modifier: Modifier = Modifier) {
+fun TrxCard(
+    trx: Trx,
+    onClick: (String) -> Unit,
+    modifier: Modifier = Modifier,
+    onLongPress: () -> Unit = {},
+) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = modifier
-            .clickable { onClick(trx.id) }
+            .combinedClickable(
+                onClick = { onClick(trx.id) },
+                onLongClick = onLongPress,
+            )
             .padding(horizontal = 20.dp, vertical = 8.dp),
     ) {
         Box(
@@ -603,5 +691,35 @@ private fun FilterSection(
             content = content
         )
         Spacer(modifier = Modifier.height(16.dp))
+    }
+}
+
+@Composable
+private fun TrxActionItem(
+    icon: ImageVector,
+    label: String,
+    onClick: () -> Unit,
+) {
+    MyBox(modifier = Modifier.fillMaxWidth()) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable(onClick = onClick)
+                .padding(horizontal = 16.dp, vertical = 16.dp),
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                modifier = Modifier.size(20.dp)
+            )
+            Spacer(modifier = Modifier.width(16.dp))
+            Text(
+                text = label,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+        }
     }
 }
