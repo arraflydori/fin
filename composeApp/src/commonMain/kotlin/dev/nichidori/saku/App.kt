@@ -39,13 +39,13 @@ import androidx.navigationevent.compose.NavigationBackHandler
 import androidx.navigationevent.compose.rememberNavigationEventState
 import com.composables.icons.lucide.*
 import dev.nichidori.saku.core.composable.*
+import dev.nichidori.saku.core.event.AppEvent
 import dev.nichidori.saku.core.event.AppEventBus
 import dev.nichidori.saku.core.navigation.TrxTypeNavType
 import dev.nichidori.saku.core.platform.getAppVersion
 import dev.nichidori.saku.core.theme.MyTheme
 import dev.nichidori.saku.core.util.collectAsStateWithLifecycleIfAvailable
 import dev.nichidori.saku.core.util.toYearMonth
-import dev.nichidori.saku.domain.model.InstallmentInfo
 import dev.nichidori.saku.domain.model.Trx
 import dev.nichidori.saku.domain.model.TrxType
 import dev.nichidori.saku.domain.repo.*
@@ -170,32 +170,36 @@ fun App(
         }
     }
 
-    LaunchedEffect(appUiState) {
-        appUiState.deletedTrx?.let { trx ->
-            val result = snackbarHostState.showSnackbar(
-                message = "Transaction deleted",
-                actionLabel = "Undo",
-                duration = SnackbarDuration.Long
-            )
-            when (result) {
-                SnackbarResult.ActionPerformed -> appViewModel.restoreTrx(trx)
-                SnackbarResult.Dismissed -> {}
-            }
-            appViewModel.clearDeletedTrx()
-        }
-    }
+    LaunchedEffect(Unit) {
+        appEventBus.events.collect { event ->
+            when (event) {
+                is AppEvent.TrxChanged.Deleted -> {
+                    if ((event.trx as? Trx.Expense)?.installment != null) return@collect
+                    val result = snackbarHostState.showSnackbar(
+                        message = "Transaction deleted",
+                        actionLabel = "Undo",
+                        withDismissAction = true,
+                        duration = SnackbarDuration.Short
+                    )
+                    if (result == SnackbarResult.ActionPerformed) {
+                        appViewModel.restoreTrx(event.trx)
+                    }
+                }
 
-    LaunchedEffect(appUiState.copiedTrxId) {
-        appUiState.copiedTrxId?.let { copiedTrxId ->
-            val result = snackbarHostState.showSnackbar(
-                message = "Transaction copied",
-                actionLabel = "View",
-                duration = SnackbarDuration.Short
-            )
-            if (result == SnackbarResult.ActionPerformed) {
-                rootNavController.navigate(Route.Trx(id = copiedTrxId))
+                is AppEvent.TrxChanged.Copied -> {
+                    val result = snackbarHostState.showSnackbar(
+                        message = "Transaction copied",
+                        actionLabel = "View",
+                        withDismissAction = true,
+                        duration = SnackbarDuration.Short
+                    )
+                    if (result == SnackbarResult.ActionPerformed) {
+                        rootNavController.navigate(Route.Trx(id = event.trxId))
+                    }
+                }
+
+                else -> {}
             }
-            appViewModel.clearCopiedTrx()
         }
     }
 
@@ -332,14 +336,11 @@ fun App(
                             },
                             onUp = { rootNavController.popBackStack() },
                             onSaveSuccess = { rootNavController.popBackStack() },
-                            onDeleteSuccess = { deletedTrx ->
-                                if ((deletedTrx as? Trx.Expense)?.installment !is InstallmentInfo.Charge) {
-                                    appViewModel.onTrxDeleted(deletedTrx)
-                                }
+                            onDeleteSuccess = {
                                 rootNavController.popBackStack()
                             },
                             onCopySuccess = { copiedTrxId ->
-                                appViewModel.onTrxCopied(copiedTrxId)
+                                appEventBus.emit(AppEvent.TrxChanged.Copied(copiedTrxId))
                                 rootNavController.popBackStack()
                             },
                         )
@@ -564,6 +565,7 @@ fun MainContainer(
                         val result = snackbarHostState.showSnackbar(
                             message = "Transaction created!",
                             actionLabel = "View",
+                            withDismissAction = true,
                             duration = SnackbarDuration.Short
                         )
                         if (result == SnackbarResult.ActionPerformed) {

@@ -18,8 +18,6 @@ private val DARK_THEME_KEY = booleanPreferencesKey("dark_theme")
 
 data class AppUiState(
     val darkTheme: Boolean? = null,
-    val deletedTrx: Trx? = null,
-    val copiedTrxId: String? = null,
 )
 
 class AppViewModel(
@@ -89,30 +87,6 @@ class AppViewModel(
             } catch (e: Exception) {
                 this@AppViewModel.log(e)
             }
-        }
-    }
-
-    fun onTrxDeleted(trx: Trx) {
-        _uiState.update {
-            it.copy(deletedTrx = trx)
-        }
-    }
-
-    fun clearDeletedTrx() {
-        _uiState.update {
-            it.copy(deletedTrx = null)
-        }
-    }
-
-    fun onTrxCopied(id: String) {
-        _uiState.update {
-            it.copy(copiedTrxId = id)
-        }
-    }
-
-    fun clearCopiedTrx() {
-        _uiState.update {
-            it.copy(copiedTrxId = null)
         }
     }
 }
