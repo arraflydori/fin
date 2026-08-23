@@ -213,7 +213,9 @@ class TrxListViewModel(
                     targetAccount = (trx as? Trx.Transfer)?.targetAccount,
                     category = trx.category,
                 )
-                appEventBus.emit(AppEvent.TrxChanged.Copied(newId))
+                val newTrx = trxRepository.getTrxById(newId)
+                    ?: throw Exception("Failed to retrieve copied transaction")
+                appEventBus.emit(AppEvent.TrxChanged.Copied(newTrx))
             } catch (e: Exception) {
                 this@TrxListViewModel.log(e)
             }

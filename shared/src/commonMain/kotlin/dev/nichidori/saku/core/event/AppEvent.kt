@@ -7,7 +7,7 @@ sealed interface AppEvent {
         data class Created(val trx: Trx) : TrxChanged
         data class Updated(val before: Trx, val after: Trx) : TrxChanged
         data class Deleted(val trx: Trx) : TrxChanged
-        data class Copied(val trxId: String) : TrxChanged
+        data class Copied(val trx: Trx) : TrxChanged
     }
 
     sealed interface AccountChanged : AppEvent {

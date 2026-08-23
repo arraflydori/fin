@@ -10,5 +10,5 @@ fun AppEvent.TrxChanged.affectedMonths(): Set<YearMonth> = when (this) {
         after.transactionAt.toYearMonth(),
     )
     is AppEvent.TrxChanged.Deleted -> setOf(trx.transactionAt.toYearMonth())
-    is AppEvent.TrxChanged.Copied -> emptySet()
+    is AppEvent.TrxChanged.Copied -> setOf(trx.transactionAt.toYearMonth())
 }

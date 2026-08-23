@@ -45,7 +45,7 @@ fun TrxPage(
     onUp: () -> Unit,
     onSaveSuccess: () -> Unit,
     onDeleteSuccess: (Trx) -> Unit,
-    onCopySuccess: (String) -> Unit,
+    onCopySuccess: (Trx) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycleIfAvailable()

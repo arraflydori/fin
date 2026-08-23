@@ -182,7 +182,7 @@ fun App(
                         duration = SnackbarDuration.Short
                     )
                     if (result == SnackbarResult.ActionPerformed) {
-                        appViewModel.restoreTrx(event.trx)
+                        rootNavController.navigate(Route.Trx(id = event.trx.id))
                     }
                 }
 
@@ -194,7 +194,7 @@ fun App(
                         duration = SnackbarDuration.Short
                     )
                     if (result == SnackbarResult.ActionPerformed) {
-                        rootNavController.navigate(Route.Trx(id = event.trxId))
+                        rootNavController.navigate(Route.Trx(id = event.trx.id))
                     }
                 }
 
@@ -340,8 +340,8 @@ fun App(
                             onDeleteSuccess = {
                                 rootNavController.popBackStack()
                             },
-                            onCopySuccess = { copiedTrxId ->
-                                appEventBus.emit(AppEvent.TrxChanged.Copied(copiedTrxId))
+                            onCopySuccess = { copiedTrx ->
+                                appEventBus.emit(AppEvent.TrxChanged.Copied(copiedTrx))
                                 rootNavController.popBackStack()
                             },
                         )

@@ -48,7 +48,7 @@ data class TrxUiState(
     val canDelete: Boolean = false,
     val saveStatus: Status<Unit, Exception> = Initial,
     val deleteStatus: Status<Trx, Exception> = Initial,
-    val copyStatus: Status<String, Exception> = Initial,
+    val copyStatus: Status<Trx, Exception> = Initial,
 ) {
     val categoriesByParent = when (type) {
         TrxType.Income -> incomesByParent
@@ -378,8 +378,10 @@ class TrxViewModel(
                     targetAccount = (trx as? Trx.Transfer)?.targetAccount,
                     category = trx.category,
                 )
+                val newTrx = trxRepository.getTrxById(newId)
+                    ?: throw Exception("Failed to retrieve copied transaction")
                 _uiState.update {
-                    it.copy(copyStatus = Success(newId))
+                    it.copy(copyStatus = Success(newTrx))
                 }
             } catch (e: Exception) {
                 this@TrxViewModel.log(e)
