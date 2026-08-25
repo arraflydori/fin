@@ -1,5 +1,6 @@
 package dev.nichidori.saku
 
+import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
@@ -18,8 +19,15 @@ import dev.nichidori.saku.data.repo.DefaultBudgetRepository
 import dev.nichidori.saku.data.repo.DefaultCategoryRepository
 import dev.nichidori.saku.data.repo.DefaultInstallmentRepository
 import dev.nichidori.saku.data.repo.DefaultTrxRepository
+import dev.nichidori.saku.mock.MockAccountRepository
+import dev.nichidori.saku.mock.MockBudgetRepository
+import dev.nichidori.saku.mock.MockCategoryRepository
+import dev.nichidori.saku.mock.MockData
+import dev.nichidori.saku.mock.MockInstallmentRepository
+import dev.nichidori.saku.mock.MockTrxRepository
 
 const val useInMemoryDb = false
+const val useMockData = true
 
 fun main() = application {
     val density = LocalDensity.current
@@ -52,15 +60,33 @@ fun main() = application {
         )
         val dataStore = createDataStore()
         val appEventBus = AppEventBus()
-        val trxRepository = DefaultTrxRepository(db = db, appEventBus = appEventBus)
-        App(
-            accountRepository = DefaultAccountRepository(db = db, appEventBus = appEventBus),
-            categoryRepository = DefaultCategoryRepository(db = db),
-            trxRepository = trxRepository,
-            budgetRepository = DefaultBudgetRepository(db = db),
-            installmentRepository = DefaultInstallmentRepository(db = db, trxRepository = trxRepository, appEventBus = appEventBus),
-            appEventBus = appEventBus,
-            dataStore = dataStore
-        )
+
+        if (useMockData) {
+            val mockData = remember { MockData() }
+            App(
+                accountRepository = MockAccountRepository(data = mockData, appEventBus = appEventBus),
+                categoryRepository = MockCategoryRepository(data = mockData),
+                trxRepository = MockTrxRepository(data = mockData, appEventBus = appEventBus),
+                budgetRepository = MockBudgetRepository(data = mockData),
+                installmentRepository = MockInstallmentRepository(data = mockData),
+                appEventBus = appEventBus,
+                dataStore = dataStore
+            )
+        } else {
+            val trxRepository = DefaultTrxRepository(db = db, appEventBus = appEventBus)
+            App(
+                accountRepository = DefaultAccountRepository(db = db, appEventBus = appEventBus),
+                categoryRepository = DefaultCategoryRepository(db = db),
+                trxRepository = trxRepository,
+                budgetRepository = DefaultBudgetRepository(db = db),
+                installmentRepository = DefaultInstallmentRepository(
+                    db = db,
+                    trxRepository = trxRepository,
+                    appEventBus = appEventBus
+                ),
+                appEventBus = appEventBus,
+                dataStore = dataStore
+            )
+        }
     }
 }
