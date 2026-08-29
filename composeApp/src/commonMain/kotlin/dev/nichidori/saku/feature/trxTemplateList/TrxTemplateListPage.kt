@@ -18,6 +18,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.composables.icons.lucide.ArrowLeftRight
 import com.composables.icons.lucide.CircleAlert
 import com.composables.icons.lucide.Lucide
 import com.composables.icons.lucide.Plus
@@ -153,11 +154,14 @@ fun TrxTemplateCard(
                         modifier = Modifier.size(20.dp)
                     )
                 } else {
-                    val icon = template.category?.icon.toPickerIcon()?.icon
+                    val icon = when (template.type) {
+                        TrxType.Transfer -> Lucide.ArrowLeftRight
+                        else -> template.category?.icon.toPickerIcon()?.icon
+                    }
                     if (icon != null) {
                         Icon(
                             imageVector = icon,
-                            contentDescription = template.category?.name,
+                            contentDescription = if (template.type == TrxType.Transfer) "Transfer" else template.category?.name,
                             tint = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.size(20.dp)
                         )
