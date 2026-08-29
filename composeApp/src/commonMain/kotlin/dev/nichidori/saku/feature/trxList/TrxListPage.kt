@@ -608,11 +608,13 @@ fun TrxCard(
                 },
                 fontWeight = FontWeight.Bold,
             )
-            Text(
-                text = secondaryText,
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onBackground,
-            )
+            if (secondaryText.isNotEmpty()) {
+                Text(
+                    text = secondaryText,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onBackground,
+                )
+            }
         }
         Column(horizontalAlignment = Alignment.End) {
             Text(
