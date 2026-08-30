@@ -12,11 +12,13 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
+typealias CategoryByParent = Pair<Category, List<Category>>
+
 data class CategoryListUiState(
     val isLoading: Boolean = false,
     val selectedType: TrxType = TrxType.Expense,
-    val incomesByParent: Map<Category, List<Category>> = emptyMap(),
-    val expensesByParent: Map<Category, List<Category>> = emptyMap(),
+    val incomesByParent: List<CategoryByParent> = emptyList(),
+    val expensesByParent: List<CategoryByParent> = emptyList(),
 )
 
 class CategoryListViewModel(
@@ -37,9 +39,11 @@ class CategoryListViewModel(
                 val incomesByParent = parents
                     .filter { it.type == TrxType.Income }
                     .associateWith { childrenByParentId[it.id].orEmpty() }
+                    .toList()
                 val expensesByParent = parents
                     .filter { it.type == TrxType.Expense }
                     .associateWith { childrenByParentId[it.id].orEmpty() }
+                    .toList()
                 _uiState.update {
                     it.copy(
                         incomesByParent = incomesByParent,
