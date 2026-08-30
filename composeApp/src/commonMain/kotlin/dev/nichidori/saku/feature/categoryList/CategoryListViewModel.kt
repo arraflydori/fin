@@ -70,6 +70,47 @@ class CategoryListViewModel(
         }
     }
 
+    fun onReorderChild(parentId: String, fromIndex: Int, toIndex: Int) {
+        if (fromIndex == toIndex) return
+        val snapshot = _uiState.value
+        val isIncomeParent = snapshot.incomesByParent.any { it.first.id == parentId }
+        val isExpenseParent = snapshot.expensesByParent.any { it.first.id == parentId }
+        if (!isIncomeParent && !isExpenseParent) return
+
+        val sourceList = if (isIncomeParent) snapshot.incomesByParent else snapshot.expensesByParent
+        val parentIndex = sourceList.indexOfFirst { it.first.id == parentId }
+        if (parentIndex == -1) return
+        val (parent, children) = sourceList[parentIndex]
+        if (fromIndex !in children.indices || toIndex !in children.indices) return
+
+        val reorderedChildren = children.toMutableList().apply {
+            add(toIndex, removeAt(fromIndex))
+        }
+
+        _uiState.update {
+            if (isIncomeParent) {
+                val updated = it.incomesByParent.toMutableList().apply {
+                    set(parentIndex, parent to reorderedChildren)
+                }
+                it.copy(incomesByParent = updated)
+            } else {
+                val updated = it.expensesByParent.toMutableList().apply {
+                    set(parentIndex, parent to reorderedChildren)
+                }
+                it.copy(expensesByParent = updated)
+            }
+        }
+
+        viewModelScope.launch {
+            try {
+                categoryRepository.reorderCategories(parentId, reorderedChildren.map { it.id })
+            } catch (e: Exception) {
+                this@CategoryListViewModel.log(e)
+                load()
+            }
+        }
+    }
+
     fun load() {
         viewModelScope.launch {
             try {
