@@ -2,6 +2,7 @@ package dev.nichidori.saku.feature.categoryList
 
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -163,7 +164,6 @@ fun CategoryListContent(
                                                             .fillMaxWidth()
                                                             .height(IntrinsicSize.Min)
                                                             .padding(top = 16.dp)
-                                                            .shadow(childElevation)
                                                     ) {
                                                         ChildNodeIndicator(
                                                             isLast = childIndex == children.lastIndex,
@@ -176,7 +176,7 @@ fun CategoryListContent(
                                                             onClick = { onCategoryClick(it) },
                                                             reorderScope = childDragScope,
                                                             haptic = haptic,
-                                                            modifier = Modifier.weight(1f)
+                                                            modifier = Modifier.weight(1f).shadow(childElevation, shape = MyDefaultShape)
                                                         )
                                                     }
                                                 }
@@ -339,6 +339,7 @@ private fun ChildCategoryCardWithHandle(
 ) {
     MyBox(
         modifier = modifier
+            .background(color = MaterialTheme.colorScheme.background)
             .clip(MyDefaultShape)
             .clickable { onClick(category.id) }
     ) {
