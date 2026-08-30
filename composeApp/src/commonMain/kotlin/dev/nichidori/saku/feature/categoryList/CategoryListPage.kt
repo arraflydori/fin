@@ -200,61 +200,6 @@ fun CategoryListContent(
 }
 
 @Composable
-fun CategoryCard(
-    category: Category,
-    onClick: (String) -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    MyBox(
-        modifier = modifier
-            .clip(MyDefaultShape)
-            .clickable { onClick(category.id) }
-    ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.padding(8.dp)
-        ) {
-            Box(
-                contentAlignment = Alignment.Center,
-                modifier = Modifier.size(40.dp)
-            ) {
-                val icon = category.icon.toPickerIcon()?.icon
-                if (icon != null) {
-                    Icon(
-                        imageVector = icon,
-                        contentDescription = category.name,
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(20.dp)
-                    )
-                } else {
-                    Text(
-                        category.name.firstOrNull()?.toString() ?: "",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary,
-                    )
-                }
-            }
-            Spacer(modifier = Modifier.width(12.dp))
-            Text(
-                category.name,
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier.weight(1f)
-            )
-            Icon(
-                imageVector = Lucide.ChevronRight,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.outline,
-                modifier = Modifier.size(20.dp)
-            )
-            Spacer(modifier = Modifier.width(8.dp))
-        }
-    }
-}
-
-@Composable
 private fun CategoryCardWithHandle(
     category: Category,
     onClick: (String) -> Unit,
