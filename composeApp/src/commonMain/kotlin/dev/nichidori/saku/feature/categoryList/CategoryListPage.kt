@@ -7,15 +7,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.key
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -38,7 +31,6 @@ import dev.nichidori.saku.core.util.collectAsStateWithLifecycleIfAvailable
 import dev.nichidori.saku.domain.model.Category
 import dev.nichidori.saku.domain.model.TrxType
 import sh.calvin.reorderable.ReorderableCollectionItemScope
-import sh.calvin.reorderable.ReorderableColumn
 import sh.calvin.reorderable.ReorderableItem
 import sh.calvin.reorderable.rememberReorderableLazyListState
 
@@ -146,10 +138,19 @@ fun CategoryListContent(
                                         haptic = haptic
                                     )
                                     if (children.isNotEmpty()) {
-                                        ReorderableColumn(
+                                        var dragFrom by remember(parent.id) { mutableStateOf<Int?>(null) }
+                                        var dragTo by remember(parent.id) { mutableStateOf<Int?>(null) }
+                                        LiveReorderableColumn(
                                             list = children,
                                             onSettle = { from, to ->
+                                                dragFrom = null
+                                                dragTo = null
                                                 onReorderChild(parent.id, from, to)
+                                                haptic.performHapticFeedback(HapticFeedbackType.SegmentFrequentTick)
+                                            },
+                                            onMove = { from, to ->
+                                                dragFrom = from
+                                                dragTo = to
                                                 haptic.performHapticFeedback(HapticFeedbackType.SegmentFrequentTick)
                                             },
                                             modifier = Modifier.fillMaxWidth(),
@@ -159,13 +160,21 @@ fun CategoryListContent(
                                                 ReorderableItem {
                                                     val childDragScope = this
                                                     val childElevation by animateDpAsState(if (isDraggingChild) 4.dp else 0.dp)
+                                                    val visualIndex = when {
+                                                        dragFrom == null || dragTo == null -> childIndex
+                                                        childIndex == dragFrom -> dragTo!!
+                                                        dragFrom!! < dragTo!! && childIndex in (dragFrom!! + 1)..dragTo!! -> childIndex - 1
+                                                        dragFrom!! > dragTo!! && childIndex in dragTo!!..<dragFrom!! -> childIndex + 1
+                                                        else -> childIndex
+                                                    }
+                                                    val isLastVisual = visualIndex == children.lastIndex
                                                     Row(
                                                         modifier = Modifier
                                                             .fillMaxWidth()
                                                             .height(IntrinsicSize.Min)
                                                     ) {
                                                         ChildNodeIndicator(
-                                                            isLast = childIndex == children.lastIndex,
+                                                            isLast = isLastVisual,
                                                             topPadding = 16.dp,
                                                             modifier = Modifier.fillMaxHeight()
                                                                 .width((48 + 4).dp)
@@ -175,6 +184,11 @@ fun CategoryListContent(
                                                             onClick = { onCategoryClick(it) },
                                                             reorderScope = childDragScope,
                                                             haptic = haptic,
+                                                            onDragStarted = {},
+                                                            onDragStopped = {
+                                                                dragFrom = null
+                                                                dragTo = null
+                                                            },
                                                             modifier = Modifier
                                                                 .weight(1f)
                                                                 .padding(top = 16.dp)
@@ -280,8 +294,10 @@ private fun CategoryCardWithHandle(
 private fun ChildCategoryCardWithHandle(
     category: Category,
     onClick: (String) -> Unit,
-    reorderScope: sh.calvin.reorderable.ReorderableListItemScope,
+    reorderScope: LiveReorderableListItemScope,
     haptic: androidx.compose.ui.hapticfeedback.HapticFeedback,
+    onDragStarted: () -> Unit = {},
+    onDragStopped: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     MyBox(
@@ -332,9 +348,11 @@ private fun ChildCategoryCardWithHandle(
                         .draggableHandle(
                             onDragStarted = {
                                 haptic.performHapticFeedback(HapticFeedbackType.GestureThresholdActivate)
+                                onDragStarted()
                             },
                             onDragStopped = {
                                 haptic.performHapticFeedback(HapticFeedbackType.GestureEnd)
+                                onDragStopped()
                             }
                         )
                         .size(32.dp)
@@ -370,9 +388,9 @@ fun ChildNodeIndicator(
         drawLine(
             color = color,
             start = Offset(x = centerX, y = 0f),
-            end = Offset(x = centerX, y = if (isLast) centerY else size.height),
+            end = Offset(x = centerX, y = if (isLast) centerY else size.height + strokeWidth),
             strokeWidth = strokeWidth,
-            cap = StrokeCap.Round
+            cap = StrokeCap.Butt
         )
         drawLine(
             color = color,
