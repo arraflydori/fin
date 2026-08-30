@@ -9,5 +9,6 @@ data class Category(
     val parent: Category? = null,
     val createdAt: Instant,
     val updatedAt: Instant?,
-    val icon: String? = null
+    val icon: String? = null,
+    val sortOrder: Int = 0
 )

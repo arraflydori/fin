@@ -143,15 +143,22 @@ class MockCategoryRepository(
 ) : CategoryRepository {
 
     override suspend fun addCategory(name: String, type: TrxType, icon: String?, parent: Category?) {
+        val resolvedParent = parent?.let { resolved -> data.categories.firstOrNull { it.id == resolved.id } }
+        val nextSortOrder = if (resolvedParent == null) {
+            data.categories.count { it.parent == null }
+        } else {
+            data.categories.count { it.parent?.id == resolvedParent.id }
+        }
         data.categories.add(
             Category(
                 id = data.newEntityId("cat"),
                 name = name,
                 type = type,
-                parent = parent?.let { resolved -> data.categories.firstOrNull { it.id == resolved.id } },
+                parent = resolvedParent,
                 createdAt = Clock.System.now(),
                 updatedAt = null,
                 icon = icon,
+                sortOrder = nextSortOrder,
             )
         )
     }
@@ -161,22 +168,33 @@ class MockCategoryRepository(
     }
 
     override suspend fun getAllCategories(): List<Category> {
-        return data.categories.toList()
+        return data.categories.sortedWith(compareBy({ it.parent?.id }, { it.sortOrder }))
     }
 
     override suspend fun getRootCategories(): List<Category> {
-        return data.categories.filter { it.parent == null }
+        return data.categories.filter { it.parent == null }.sortedBy { it.sortOrder }
     }
 
     override suspend fun getSubcategories(parentId: String): List<Category> {
-        return data.categories.filter { it.parent?.id == parentId }
+        return data.categories.filter { it.parent?.id == parentId }.sortedBy { it.sortOrder }
     }
 
     override suspend fun updateCategory(id: String, name: String, type: TrxType, icon: String?, parent: Category?) {
-        data.categories.firstOrNull { it.id == id }
+        val existing = data.categories.firstOrNull { it.id == id }
             ?: throw NoSuchElementException("Category not found")
         val resolvedParent = parent?.let { requested ->
             data.categories.firstOrNull { candidate -> candidate.id == requested.id && candidate.id != id }
+        }
+        val oldParentId = existing.parent?.id
+        val newParentId = resolvedParent?.id
+        val newSortOrder = if (oldParentId != newParentId) {
+            if (newParentId == null) {
+                data.categories.count { it.parent == null }
+            } else {
+                data.categories.count { it.parent?.id == newParentId }
+            }
+        } else {
+            existing.sortOrder
         }
         data.categories.replaceAll {
             if (it.id == id) {
@@ -186,16 +204,69 @@ class MockCategoryRepository(
                     icon = icon,
                     parent = resolvedParent,
                     updatedAt = Clock.System.now(),
+                    sortOrder = newSortOrder,
                 )
             } else {
                 it
             }
         }
+        if (oldParentId != newParentId) {
+            compactPartition(oldParentId)
+        }
     }
 
     override suspend fun deleteCategory(id: String) {
+        val existing = data.categories.firstOrNull { it.id == id }
+            ?: throw NoSuchElementException("Category not found")
+        val parentId = existing.parent?.id
         val removedIds = collectWithChildren(id)
         data.categories.removeAll { it.id in removedIds }
+        compactPartition(parentId)
+    }
+
+    override suspend fun reorderCategories(parentId: String?, orderedIds: List<String>) {
+        if (parentId != null && data.categories.none { it.id == parentId }) {
+            throw NoSuchElementException("Parent category not found")
+        }
+        val current = if (parentId == null) {
+            data.categories.filter { it.parent == null }
+        } else {
+            data.categories.filter { it.parent?.id == parentId }
+        }
+        if (current.size != orderedIds.size) {
+            throw IllegalArgumentException("orderedIds size must match partition size")
+        }
+        if (orderedIds.toSet().size != orderedIds.size) {
+            throw IllegalArgumentException("Duplicate ids in orderedIds")
+        }
+        val byId = current.associateBy { it.id }
+        orderedIds.forEach { orderedId ->
+            byId[orderedId] ?: throw IllegalArgumentException("Category $orderedId not in partition parentId=$parentId")
+        }
+        val orderByIdx = orderedIds.withIndex().associate { it.value to it.index }
+        data.categories.replaceAll { cat ->
+            val isInPartition = if (parentId == null) cat.parent == null else cat.parent?.id == parentId
+            if (isInPartition) {
+                val idx = orderByIdx[cat.id]!!
+                if (cat.sortOrder != idx) cat.copy(sortOrder = idx) else cat
+            } else cat
+        }
+    }
+
+    private fun compactPartition(parentId: String?) {
+        val siblings = if (parentId == null) {
+            data.categories.filter { it.parent == null }.sortedBy { it.sortOrder }
+        } else {
+            data.categories.filter { it.parent?.id == parentId }.sortedBy { it.sortOrder }
+        }
+        val orderById = siblings.mapIndexed { idx, cat -> cat.id to idx }.toMap()
+        data.categories.replaceAll { cat ->
+            val isInPartition = if (parentId == null) cat.parent == null else cat.parent?.id == parentId
+            if (isInPartition) {
+                val idx = orderById[cat.id]!!
+                if (cat.sortOrder != idx) cat.copy(sortOrder = idx) else cat
+            } else cat
+        }
     }
 
     private fun collectWithChildren(id: String): Set<String> {

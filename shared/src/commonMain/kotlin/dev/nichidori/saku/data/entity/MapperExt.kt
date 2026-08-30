@@ -101,7 +101,8 @@ fun CategoryEntity.toDomain(parent: Category? = null): Category = Category(
     parent = parent,
     createdAt = Instant.fromEpochMilliseconds(createdAt),
     updatedAt = updatedAt?.let { Instant.fromEpochMilliseconds(it) },
-    icon = icon
+    icon = icon,
+    sortOrder = sortOrder
 )
 
 fun Category.toEntity(): CategoryEntity = CategoryEntity(
@@ -111,7 +112,8 @@ fun Category.toEntity(): CategoryEntity = CategoryEntity(
     parentId = parent?.id,
     createdAt = createdAt.toEpochMilliseconds(),
     updatedAt = updatedAt?.toEpochMilliseconds(),
-    icon = icon
+    icon = icon,
+    sortOrder = sortOrder
 )
 
 fun AccountTypeEntity.toDomain(): AccountType = when (this) {

@@ -11,4 +11,5 @@ interface CategoryRepository {
     suspend fun getSubcategories(parentId: String): List<Category>
     suspend fun updateCategory(id: String, name: String, type: TrxType, icon: String?, parent: Category?)
     suspend fun deleteCategory(id: String)
+    suspend fun reorderCategories(parentId: String?, orderedIds: List<String>)
 }

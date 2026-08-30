@@ -174,6 +174,11 @@ class MockData(now: Instant = Clock.System.now()) {
         icon: String?,
         parent: Category? = null,
     ): Category {
+        val sortOrder = if (parent == null) {
+            categories.count { it.parent == null }
+        } else {
+            categories.count { it.parent?.id == parent.id }
+        }
         val category = Category(
             id = id,
             name = name,
@@ -182,6 +187,7 @@ class MockData(now: Instant = Clock.System.now()) {
             createdAt = epochStart,
             updatedAt = null,
             icon = icon,
+            sortOrder = sortOrder,
         )
         categories.add(category)
         return category

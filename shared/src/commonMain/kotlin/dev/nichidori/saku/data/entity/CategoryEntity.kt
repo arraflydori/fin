@@ -17,7 +17,9 @@ import androidx.room.PrimaryKey
         )
     ],
     indices = [
-        Index(value = ["parent_id"])
+        Index(value = ["parent_id"]),
+        Index(value = ["sort_order"]),
+        Index(value = ["parent_id", "sort_order"])
     ]
 )
 data class CategoryEntity(
@@ -27,5 +29,6 @@ data class CategoryEntity(
     @ColumnInfo(name = "parent_id") val parentId: String?,
     @ColumnInfo(name = "created_at") val createdAt: Long,
     @ColumnInfo(name = "updated_at") val updatedAt: Long?,
-    @ColumnInfo(name = "icon") val icon: String? = null
+    @ColumnInfo(name = "icon") val icon: String? = null,
+    @ColumnInfo(name = "sort_order") val sortOrder: Int = 0
 )

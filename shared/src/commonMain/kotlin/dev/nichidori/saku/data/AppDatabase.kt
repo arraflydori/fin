@@ -23,7 +23,7 @@ import kotlinx.coroutines.Dispatchers
         MonthlyNetWorthEntity::class,
         InstallmentEntity::class,
     ],
-    version = 12,
+    version = 13,
 )
 abstract class AppDatabase : RoomDatabase() {
     abstract fun accountDao(): AccountDao
@@ -458,6 +458,27 @@ val MIGRATION_11_12 = object : Migration(11, 12) {
     }
 }
 
+val MIGRATION_12_13 = object : Migration(12, 13) {
+    override fun migrate(connection: SQLiteConnection) {
+        connection.execSQL("ALTER TABLE `category` ADD COLUMN `sort_order` INTEGER NOT NULL DEFAULT 0")
+        connection.execSQL("CREATE INDEX IF NOT EXISTS `index_category_sort_order` ON `category` (`sort_order`)")
+        connection.execSQL("CREATE INDEX IF NOT EXISTS `index_category_parent_id_sort_order` ON `category` (`parent_id`, `sort_order`)")
+        // Backfill deterministic 0..n-1 per partition by name ASC (preserve existing UI order)
+        connection.execSQL(
+            """
+            UPDATE `category` SET `sort_order` = (
+                SELECT COUNT(*) FROM `category` AS c2
+                WHERE c2.`parent_id` IS `category`.`parent_id`
+                AND (
+                    c2.`name` < `category`.`name`
+                    OR (c2.`name` = `category`.`name` AND c2.`id` < `category`.`id`)
+                )
+            )
+            """.trimIndent()
+        )
+    }
+}
+
 fun getRoomDatabase(
     builder: RoomDatabase.Builder<AppDatabase>
 ): AppDatabase {
@@ -473,7 +494,8 @@ fun getRoomDatabase(
             MIGRATION_8_9,
             MIGRATION_9_10,
             MIGRATION_10_11,
-            MIGRATION_11_12
+            MIGRATION_11_12,
+            MIGRATION_12_13
         )
         .fallbackToDestructiveMigrationOnDowngrade(dropAllTables = false)
         .setDriver(BundledSQLiteDriver())
