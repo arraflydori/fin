@@ -28,6 +28,7 @@ navigationCompose = "2.9.0"
 navigationEvent = "1.0.0"
 room = "2.7.2"
 coreAnimation = "1.0.0"
+reorderable = "3.1.0"
 
 [libraries]
 androidx-room-compiler = { module = "androidx.room:room-compiler", version.ref = "room"  }
@@ -59,6 +60,7 @@ navigationevent-compose = { module = "org.jetbrains.androidx.navigationevent:nav
 kotlinx-serialization-core = { module = "org.jetbrains.kotlinx:kotlinx-serialization-core", version.ref = "kotlinSerializationCore" }
 material = { module = "com.google.android.material:material", version.ref = "material" }
 androidx-core-animation = { group = "androidx.core", name = "core-animation", version.ref = "coreAnimation" }
+reorderable = { module = "sh.calvin.reorderable:reorderable", version.ref = "reorderable" }
 
 [plugins]
 androidApplication = { id = "com.android.application", version.ref = "agp" }

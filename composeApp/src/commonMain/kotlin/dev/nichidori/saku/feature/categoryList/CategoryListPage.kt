@@ -1,13 +1,15 @@
 package dev.nichidori.saku.feature.categoryList
 
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -17,11 +19,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.composables.icons.lucide.ChevronRight
+import com.composables.icons.lucide.GripVertical
 import com.composables.icons.lucide.Lucide
 import com.composables.icons.lucide.Plus
 import dev.nichidori.saku.core.composable.*
@@ -29,6 +34,9 @@ import dev.nichidori.saku.core.model.toPickerIcon
 import dev.nichidori.saku.core.util.collectAsStateWithLifecycleIfAvailable
 import dev.nichidori.saku.domain.model.Category
 import dev.nichidori.saku.domain.model.TrxType
+import sh.calvin.reorderable.ReorderableCollectionItemScope
+import sh.calvin.reorderable.ReorderableItem
+import sh.calvin.reorderable.rememberReorderableLazyListState
 
 @Composable
 fun CategoryListPage(
@@ -48,6 +56,7 @@ fun CategoryListPage(
         uiState = uiState,
         onUp = onUp,
         onSelectedTypeChange = viewModel::onSelectedTypeChange,
+        onReorder = viewModel::onReorder,
         onNewCategoryClick = onNewCategoryClick,
         onCategoryClick = onCategoryClick,
         modifier = modifier
@@ -59,6 +68,7 @@ fun CategoryListContent(
     uiState: CategoryListUiState,
     onUp: () -> Unit,
     onSelectedTypeChange: (TrxType) -> Unit,
+    onReorder: (Int, Int) -> Unit,
     onNewCategoryClick: (TrxType) -> Unit,
     onCategoryClick: (String) -> Unit,
     modifier: Modifier = Modifier
@@ -98,34 +108,58 @@ fun CategoryListContent(
                 uiState.expensesByParent
             }
             if (categoriesByParent.isNotEmpty()) {
+                val haptic = LocalHapticFeedback.current
+                val lazyListState = rememberLazyListState()
+                val reorderableState = rememberReorderableLazyListState(lazyListState) { from, to ->
+                    onReorder(from.index, to.index)
+                    haptic.performHapticFeedback(HapticFeedbackType.SegmentFrequentTick)
+                }
+
                 LazyColumn(
+                    state = lazyListState,
                     contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 16.dp),
                     modifier = Modifier.weight(1f).padding(top = 16.dp),
                 ) {
-                    categoriesByParent.onEachIndexed { i, (parent, children) ->
-                        item {
-                            CategoryCard(
-                                category = parent,
-                                onClick = { onCategoryClick(it) },
+                    items(categoriesByParent.size, key = { categoriesByParent[it].first.id }) { idx ->
+                        val (parent, children) = categoriesByParent[idx]
+                        ReorderableItem(reorderableState, key = parent.id) { isDragging ->
+                            val elevation by animateDpAsState(if (isDragging) 4.dp else 0.dp)
+                            Surface(
+                                shadowElevation = elevation,
+                                color = MaterialTheme.colorScheme.surface,
                                 modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(top = if (i != 0) 16.dp else 0.dp)
-                            )
-                        }
-                        itemsIndexed(children) { index, child ->
-                            Row(modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min)) {
-                                ChildNodeIndicator(
-                                    isLast = index == children.lastIndex,
-                                    topPadding = 16.dp,
-                                    modifier = Modifier.fillMaxHeight().width((48 + 4).dp)
-                                )
-                                CategoryCard(
-                                    category = child,
-                                    onClick = { onCategoryClick(it) },
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .padding(top = 16.dp)
-                                )
+                                    .animateItem(fadeInSpec = null, fadeOutSpec = null)
+                                    .padding(top = if (idx != 0) 16.dp else 0.dp)
+                            ) {
+                                Column(modifier = Modifier.fillMaxWidth()) {
+                                    CategoryCardWithHandle(
+                                        category = parent,
+                                        onClick = { onCategoryClick(it) },
+                                        modifier = Modifier.fillMaxWidth(),
+                                        reorderScope = this@ReorderableItem,
+                                        haptic = haptic
+                                    )
+                                    children.forEachIndexed { index, child ->
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .height(IntrinsicSize.Min)
+                                                .padding(top = 16.dp)
+                                        ) {
+                                            ChildNodeIndicator(
+                                                isLast = index == children.lastIndex,
+                                                topPadding = 16.dp,
+                                                modifier = Modifier.fillMaxHeight()
+                                                    .width((48 + 4).dp)
+                                            )
+                                            CategoryCard(
+                                                category = child,
+                                                onClick = { onCategoryClick(it) },
+                                                modifier = Modifier.weight(1f)
+                                            )
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
@@ -145,7 +179,7 @@ fun CategoryListContent(
 fun CategoryCard(
     category: Category,
     onClick: (String) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     MyBox(
         modifier = modifier
@@ -185,6 +219,81 @@ fun CategoryCard(
                 color = MaterialTheme.colorScheme.onSurface,
                 modifier = Modifier.weight(1f)
             )
+            Icon(
+                imageVector = Lucide.ChevronRight,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.outline,
+                modifier = Modifier.size(20.dp)
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+        }
+    }
+}
+
+@Composable
+private fun CategoryCardWithHandle(
+    category: Category,
+    onClick: (String) -> Unit,
+    reorderScope: ReorderableCollectionItemScope,
+    haptic: androidx.compose.ui.hapticfeedback.HapticFeedback,
+    modifier: Modifier = Modifier,
+) {
+    MyBox(
+        modifier = modifier
+            .clip(MyDefaultShape)
+            .clickable { onClick(category.id) }
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(8.dp)
+        ) {
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier = Modifier.size(40.dp)
+            ) {
+                val icon = category.icon.toPickerIcon()?.icon
+                if (icon != null) {
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = category.name,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(20.dp)
+                    )
+                } else {
+                    Text(
+                        category.name.firstOrNull()?.toString() ?: "",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.width(12.dp))
+            Text(
+                category.name,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.weight(1f)
+            )
+            with(reorderScope) {
+                Icon(
+                    imageVector = Lucide.GripVertical,
+                    contentDescription = "Drag to reorder",
+                    tint = MaterialTheme.colorScheme.outline,
+                    modifier = Modifier
+                        .draggableHandle(
+                            onDragStarted = {
+                                haptic.performHapticFeedback(HapticFeedbackType.GestureThresholdActivate)
+                            },
+                            onDragStopped = {
+                                haptic.performHapticFeedback(HapticFeedbackType.GestureEnd)
+                            }
+                        )
+                        .size(32.dp)
+                        .padding(6.dp)
+                )
+            }
             Icon(
                 imageVector = Lucide.ChevronRight,
                 contentDescription = null,

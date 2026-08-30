@@ -27,6 +27,49 @@ class CategoryListViewModel(
     private val _uiState = MutableStateFlow(CategoryListUiState())
     val uiState: StateFlow<CategoryListUiState> = _uiState.asStateFlow()
 
+    fun onReorder(fromIndex: Int, toIndex: Int) {
+        if (fromIndex == toIndex) return
+        val snapshot = _uiState.value
+        val isIncome = snapshot.selectedType == TrxType.Income
+        val sourceList = if (isIncome) snapshot.incomesByParent else snapshot.expensesByParent
+        if (fromIndex !in sourceList.indices || toIndex !in sourceList.indices) return
+
+        val reordered = sourceList.toMutableList().apply {
+            add(toIndex, removeAt(fromIndex))
+        }
+
+        _uiState.update {
+            if (isIncome) it.copy(incomesByParent = reordered)
+            else it.copy(expensesByParent = reordered)
+        }
+
+        viewModelScope.launch {
+            try {
+                val newIncomes = if (isIncome) reordered else snapshot.incomesByParent
+                val newExpenses = if (isIncome) snapshot.expensesByParent else reordered
+
+                // Build global ordering preserving the interleaving of Income/Expense positions
+                // based on sortOrder, but with the reordered sequence for the active type.
+                val allRootsSorted = (snapshot.incomesByParent.map { it.first } +
+                    snapshot.expensesByParent.map { it.first })
+                    .sortedBy { it.sortOrder }
+
+                val incomeQueue = ArrayDeque(newIncomes.map { it.first.id })
+                val expenseQueue = ArrayDeque(newExpenses.map { it.first.id })
+
+                val globalOrderedIds = allRootsSorted.map { cat ->
+                    if (cat.type == TrxType.Income) incomeQueue.removeFirst()
+                    else expenseQueue.removeFirst()
+                }
+
+                categoryRepository.reorderCategories(null, globalOrderedIds)
+            } catch (e: Exception) {
+                this@CategoryListViewModel.log(e)
+                load()
+            }
+        }
+    }
+
     fun load() {
         viewModelScope.launch {
             try {

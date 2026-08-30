@@ -57,6 +57,7 @@ kotlin {
             implementation(libs.lifecycle.viewmodel.compose)
             implementation(libs.navigation.compose)
             implementation(libs.navigationevent.compose)
+            implementation(libs.reorderable)
             implementation(projects.shared)
         }
         commonTest.dependencies {
