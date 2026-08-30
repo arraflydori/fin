@@ -163,7 +163,6 @@ fun CategoryListContent(
                                                         modifier = Modifier
                                                             .fillMaxWidth()
                                                             .height(IntrinsicSize.Min)
-                                                            .padding(top = 16.dp)
                                                     ) {
                                                         ChildNodeIndicator(
                                                             isLast = childIndex == children.lastIndex,
@@ -176,7 +175,10 @@ fun CategoryListContent(
                                                             onClick = { onCategoryClick(it) },
                                                             reorderScope = childDragScope,
                                                             haptic = haptic,
-                                                            modifier = Modifier.weight(1f).shadow(childElevation, shape = MyDefaultShape)
+                                                            modifier = Modifier
+                                                                .weight(1f)
+                                                                .padding(top = 16.dp)
+                                                                .shadow(childElevation, shape = MyDefaultShape)
                                                         )
                                                     }
                                                 }
